@@ -10,125 +10,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-
-body{
-margin:0;
-font-family:Inter,sans-serif;
-background:#f1f5f9;
-color:#0f172a;
-}
-
-header{
-background:#0f172a;
-color:white;
-padding:18px;
-text-align:center;
-font-weight:600;
-font-size:18px;
-transition:.4s ease;
-}
-
-.container{ padding:20px; }
-
-.kpi-grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-gap:16px;
-margin-bottom:20px;
-}
-
-.kpi{
-background:white;
-border-radius:18px;
-padding:20px;
-box-shadow:0 10px 24px rgba(0,0,0,.06);
-}
-
-.kpi h4{
-margin:0;
-font-size:12px;
-text-transform:uppercase;
-color:#64748b;
-}
-
-.kpi .value{
-margin-top:8px;
-font-size:24px;
-font-weight:700;
-}
-
-.card{
-background:white;
-border-radius:18px;
-padding:22px;
-box-shadow:0 10px 24px rgba(0,0,0,.06);
-margin-bottom:20px;
-}
-
-input,select,textarea{
-padding:8px;
-border-radius:8px;
-border:1px solid #e2e8f0;
-width:100%;
-font-size:14px;
-}
-
-button{
-padding:8px 14px;
-border:none;
-border-radius:8px;
-background:#0ea5e9;
-color:white;
-cursor:pointer;
-font-weight:600;
-}
-
-button.secondary{
-background:#64748b;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-font-size:14px;
-}
-
-th,td{
-padding:10px;
-border-bottom:1px solid #e2e8f0;
-}
-
-th{
-background:#f8fafc;
-font-size:12px;
-text-transform:uppercase;
-}
-
-tr:hover{ background:#f8fafc; }
-
-.hidden{ display:none; }
-
-.modal{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,.4);
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.modal-content{
-background:white;
-padding:30px;
-border-radius:18px;
-width:320px;
-}
-
-canvas{ max-height:240px !important; }
-
+body{margin:0;font-family:Inter,sans-serif;background:#f1f5f9;color:#0f172a;}
+header{background:#0f172a;color:white;padding:18px;text-align:center;font-weight:600;font-size:18px;}
+.container{padding:20px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px;}
+.kpi{background:white;border-radius:18px;padding:20px;box-shadow:0 10px 24px rgba(0,0,0,.06);}
+.kpi h4{margin:0;font-size:12px;text-transform:uppercase;color:#64748b;}
+.kpi .value{margin-top:8px;font-size:24px;font-weight:700;}
+.card{background:white;border-radius:18px;padding:22px;box-shadow:0 10px 24px rgba(0,0,0,.06);margin-bottom:20px;}
+input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e2e8f0;width:100%;font-size:14px;}
+button{padding:8px 14px;border:none;border-radius:8px;background:#0ea5e9;color:white;cursor:pointer;font-weight:600;}
+button.secondary{background:#64748b;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:10px;border-bottom:1px solid #e2e8f0;}
+th{background:#f8fafc;font-size:12px;text-transform:uppercase;}
+tr:hover{background:#f8fafc;}
+.hidden{display:none;}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
+.modal-content{background:white;padding:30px;border-radius:18px;width:320px;}
+canvas{max-height:240px !important;}
 </style>
 </head>
 
@@ -217,18 +117,20 @@ canvas{ max-height:240px !important; }
 /* ================= CONFIG ================= */
 
 const DROPBOX_APP_KEY="hr483k5j5h2aegt";
+const REDIRECT_URI="https://evotechlab.github.io/supplytrackerclient/";
 const DROPBOX_FOLDER="/supply_records";
 
 let accessToken=localStorage.getItem("db_access");
 let refreshToken=localStorage.getItem("db_refresh");
 
 let records=[];
-let chart;
+let chart=null;
 let currentExtendId=null;
 
 /* ================= DROPBOX AUTH ================= */
 
 async function refreshAccessToken(){
+if(!refreshToken) return;
 const response=await fetch("https://api.dropboxapi.com/oauth2/token",{
 method:"POST",
 headers:{"Content-Type":"application/x-www-form-urlencoded"},
@@ -244,6 +146,7 @@ localStorage.setItem("db_access",accessToken);
 }
 
 async function dropboxFetch(url,options={}){
+if(!accessToken) return {status:401};
 options.headers=options.headers||{};
 options.headers["Authorization"]="Bearer "+accessToken;
 let response=await fetch(url,options);
@@ -255,9 +158,14 @@ response=await fetch(url,options);
 return response;
 }
 
-/* ================= LOAD RECORDS ================= */
+/* ================= LOAD ================= */
 
 async function loadData(){
+
+if(!accessToken){
+render();
+return;
+}
 
 const response=await dropboxFetch(
 "https://api.dropboxapi.com/2/files/list_folder",
@@ -268,12 +176,19 @@ body:JSON.stringify({path:DROPBOX_FOLDER})
 }
 );
 
-if(response.status!==200) return;
+if(response.status!==200){
+records=[];
+render();
+return;
+}
 
 const data=await response.json();
-const files=data.entries.filter(f=>f.name.startsWith("supply_"));
 
-records=await Promise.all(files.map(async file=>{
+const files=(data.entries||[])
+.filter(f=>f[".tag"]==="file" && f.name.startsWith("supply_"));
+
+records=(await Promise.all(files.map(async file=>{
+try{
 const res=await dropboxFetch(
 "https://content.dropboxapi.com/2/files/download",
 {
@@ -282,28 +197,30 @@ headers:{"Dropbox-API-Arg":JSON.stringify({path:file.path_lower})}
 }
 );
 return await res.json();
-}));
+}catch{
+return null;
+}
+}))).filter(r=>r && r.id && r.user && r.item);
 
 render();
 }
 
-/* ================= ID PROGRESSIVO ================= */
+/* ================= ID ================= */
 
 function generateNextId(){
 let max=0;
 records.forEach(r=>{
-const num=parseInt(r.id.replace("SUP-",""));
-if(num>max) max=num;
+const n=parseInt(r.id.replace("SUP-",""));
+if(!isNaN(n) && n>max) max=n;
 });
 return "SUP-"+String(max+1).padStart(4,"0");
 }
 
-/* ================= ADD RECORD ================= */
+/* ================= ADD ================= */
 
 async function addRecord(){
 
 const id=generateNextId();
-
 const tipo=document.getElementById("tipo").value;
 
 const record={
@@ -314,12 +231,12 @@ item:document.getElementById("item").value,
 quantita:Number(document.getElementById("qty").value),
 stato:"inserito",
 tipo,
-noleggio:{
-attivo:tipo==="noleggio",
-dal:tipo==="noleggio"?document.getElementById("dal").value:null,
-al:tipo==="noleggio"?document.getElementById("al").value:null,
+noleggio:tipo==="noleggio"?{
+attivo:true,
+dal:document.getElementById("dal").value,
+al:document.getElementById("al").value,
 storico_estensioni:[]
-},
+}:null,
 note:document.getElementById("note").value
 };
 
@@ -350,10 +267,11 @@ const search=document.getElementById("searchInput").value?.toLowerCase()||"";
 const filter=document.getElementById("statusFilter").value;
 
 let filtered=records.filter(r=>{
+if(!r) return false;
 const matchSearch=
-r.user.toLowerCase().includes(search)||
-r.item.toLowerCase().includes(search)||
-r.id.toLowerCase().includes(search);
+(r.user||"").toLowerCase().includes(search)||
+(r.item||"").toLowerCase().includes(search)||
+(r.id||"").toLowerCase().includes(search);
 const matchStatus=filter? r.stato===filter:true;
 return matchSearch && matchStatus;
 });
@@ -364,7 +282,7 @@ filtered.forEach(r=>{
 if(r.stato==="inserito") inserted++;
 if(r.stato==="in_lavorazione") working++;
 if(r.stato==="chiuso") closed++;
-if(r.tipo==="noleggio" && r.stato!=="chiuso") rental++;
+if(r.tipo==="noleggio" && r.noleggio && r.stato!=="chiuso") rental++;
 });
 
 document.getElementById("kpiTotal").innerText=records.length;
@@ -384,7 +302,7 @@ tbody.innerHTML+=`
 <td>${r.item}</td>
 <td>${r.quantita}</td>
 <td>${r.tipo}</td>
-<td>${r.tipo==="noleggio"?r.noleggio.dal+" → "+r.noleggio.al:"-"}</td>
+<td>${r.tipo==="noleggio" && r.noleggio ? r.noleggio.dal+" → "+r.noleggio.al : "-"}</td>
 <td>
 <select onchange="changeStatus('${r.id}',this.value)">
 <option value="inserito" ${r.stato==="inserito"?"selected":""}>INSERITO</option>
@@ -393,8 +311,9 @@ tbody.innerHTML+=`
 </select>
 </td>
 <td>
-${r.tipo==="noleggio" && r.stato!=="chiuso"?
-`<button onclick="openExtend('${r.id}')">Estendi</button>`:""}
+${r.tipo==="noleggio" && r.noleggio && r.stato!=="chiuso"
+? `<button onclick="openExtend('${r.id}')">Estendi</button>`
+: ""}
 </td>
 </tr>`;
 });
@@ -402,10 +321,11 @@ ${r.tipo==="noleggio" && r.stato!=="chiuso"?
 updateChart(inserted,working,closed);
 }
 
-/* ================= STATUS UPDATE ================= */
+/* ================= STATUS ================= */
 
 async function changeStatus(id,newStatus){
 const r=records.find(x=>x.id===id);
+if(!r) return;
 r.stato=newStatus;
 
 await dropboxFetch(
@@ -426,23 +346,26 @@ body:JSON.stringify(r)
 render();
 }
 
-/* ================= EXTENSION MODAL ================= */
+/* ================= MODAL ================= */
 
 function openExtend(id){
+const r=records.find(x=>x.id===id);
+if(!r || r.tipo!=="noleggio" || !r.noleggio) return;
 currentExtendId=id;
 document.getElementById("extendModal").classList.remove("hidden");
 }
 
 function closeModal(){
+currentExtendId=null;
 document.getElementById("extendModal").classList.add("hidden");
 }
 
 async function confirmExtend(){
-
 const newEnd=document.getElementById("extendDate").value;
-if(!newEnd) return;
+if(!newEnd || !currentExtendId) return;
 
 const r=records.find(x=>x.id===currentExtendId);
+if(!r || !r.noleggio) return;
 
 r.noleggio.storico_estensioni.push({
 dal:r.noleggio.al,
@@ -453,18 +376,14 @@ timestamp:new Date().toISOString()
 r.noleggio.al=newEnd;
 
 await changeStatus(r.id,r.stato);
-
 closeModal();
 }
 
 /* ================= CHART ================= */
 
 function updateChart(inserted,working,closed){
-
 const ctx=document.getElementById("statusChart");
-
 if(chart) chart.destroy();
-
 chart=new Chart(ctx,{
 type:'doughnut',
 data:{
@@ -474,11 +393,7 @@ data:[inserted,working,closed],
 backgroundColor:['#ef4444','#facc15','#22c55e']
 }]
 },
-options:{
-responsive:true,
-maintainAspectRatio:false,
-plugins:{legend:{position:'bottom'}}
-}
+options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
 });
 }
 
