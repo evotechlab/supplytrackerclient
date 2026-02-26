@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Supply Tracker Enterprise</title>
+<title>Supply Tracker</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,21 +20,18 @@ header{background:#0f172a;color:white;padding:18px;text-align:center;font-weight
 .card{background:white;border-radius:18px;padding:22px;box-shadow:0 10px 24px rgba(0,0,0,.06);margin-bottom:20px;}
 input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e2e8f0;width:100%;font-size:14px;}
 button{padding:8px 14px;border:none;border-radius:8px;background:#0ea5e9;color:white;cursor:pointer;font-weight:600;}
-button.secondary{background:#64748b;}
+button.danger{background:#ef4444;}
 table{width:100%;border-collapse:collapse;font-size:14px;}
 th,td{padding:10px;border-bottom:1px solid #e2e8f0;}
 th{background:#f8fafc;font-size:12px;text-transform:uppercase;}
 tr:hover{background:#f8fafc;}
-.hidden{display:none;}
-.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
-.modal-content{background:white;padding:30px;border-radius:18px;width:320px;}
 canvas{max-height:240px !important;}
 </style>
 </head>
 
 <body>
 
-<header>Supply Tracker Enterprise</header>
+<header>Supply Tracker</header>
 
 <div class="container">
 
@@ -43,7 +40,6 @@ canvas{max-height:240px !important;}
 <div class="kpi"><h4>Inseriti</h4><div class="value" id="kpiInserted">0</div></div>
 <div class="kpi"><h4>In Lavorazione</h4><div class="value" id="kpiWorking">0</div></div>
 <div class="kpi"><h4>Chiusi</h4><div class="value" id="kpiClosed">0</div></div>
-<div class="kpi"><h4>Noleggi Attivi</h4><div class="value" id="kpiRental">0</div></div>
 </div>
 
 <div class="card">
@@ -74,8 +70,6 @@ canvas{max-height:240px !important;}
 <option value="acquisto">Acquisto</option>
 <option value="noleggio">Noleggio</option>
 </select>
-<input id="dal" type="date" class="hidden">
-<input id="al" type="date" class="hidden">
 <textarea id="note" placeholder="Note" style="grid-column:span 2;"></textarea>
 </div>
 <br>
@@ -91,7 +85,6 @@ canvas{max-height:240px !important;}
 <th>Item</th>
 <th>Q.tà</th>
 <th>Tipo</th>
-<th>Periodo</th>
 <th>Stato</th>
 <th>Azioni</th>
 </tr>
@@ -100,16 +93,6 @@ canvas{max-height:240px !important;}
 </table>
 </div>
 
-</div>
-
-<div id="extendModal" class="modal hidden">
-<div class="modal-content">
-<h4>Estendi Noleggio</h4>
-<input type="date" id="extendDate">
-<br><br>
-<button onclick="confirmExtend()">Conferma</button>
-<button class="secondary" onclick="closeModal()">Annulla</button>
-</div>
 </div>
 
 <script>
@@ -125,9 +108,8 @@ let refreshToken=localStorage.getItem("db_refresh");
 
 let records=[];
 let chart=null;
-let currentExtendId=null;
 
-/* ================= DROPBOX AUTH ================= */
+/* ================= DROPBOX ================= */
 
 async function refreshAccessToken(){
 if(!refreshToken) return;
@@ -162,10 +144,7 @@ return response;
 
 async function loadData(){
 
-if(!accessToken){
-render();
-return;
-}
+if(!accessToken){ render(); return; }
 
 const response=await dropboxFetch(
 "https://api.dropboxapi.com/2/files/list_folder",
@@ -183,7 +162,6 @@ return;
 }
 
 const data=await response.json();
-
 const files=(data.entries||[])
 .filter(f=>f[".tag"]==="file" && f.name.startsWith("supply_"));
 
@@ -197,10 +175,8 @@ headers:{"Dropbox-API-Arg":JSON.stringify({path:file.path_lower})}
 }
 );
 return await res.json();
-}catch{
-return null;
-}
-}))).filter(r=>r && r.id && r.user && r.item);
+}catch{ return null; }
+}))).filter(r=>r && r.id);
 
 render();
 }
@@ -221,7 +197,6 @@ return "SUP-"+String(max+1).padStart(4,"0");
 async function addRecord(){
 
 const id=generateNextId();
-const tipo=document.getElementById("tipo").value;
 
 const record={
 id,
@@ -230,13 +205,7 @@ user:document.getElementById("user").value,
 item:document.getElementById("item").value,
 quantita:Number(document.getElementById("qty").value),
 stato:"inserito",
-tipo,
-noleggio:tipo==="noleggio"?{
-attivo:true,
-dal:document.getElementById("dal").value,
-al:document.getElementById("al").value,
-storico_estensioni:[]
-}:null,
+tipo:document.getElementById("tipo").value,
 note:document.getElementById("note").value
 };
 
@@ -259,66 +228,21 @@ records.push(record);
 render();
 }
 
-/* ================= RENDER ================= */
+/* ================= DELETE ================= */
 
-function render(){
+async function deleteRecord(id){
 
-const search=document.getElementById("searchInput").value?.toLowerCase()||"";
-const filter=document.getElementById("statusFilter").value;
+await dropboxFetch(
+"https://api.dropboxapi.com/2/files/delete_v2",
+{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({path:`${DROPBOX_FOLDER}/supply_${id}.json`})
+}
+);
 
-let filtered=records.filter(r=>{
-if(!r) return false;
-const matchSearch=
-(r.user||"").toLowerCase().includes(search)||
-(r.item||"").toLowerCase().includes(search)||
-(r.id||"").toLowerCase().includes(search);
-const matchStatus=filter? r.stato===filter:true;
-return matchSearch && matchStatus;
-});
-
-let inserted=0,working=0,closed=0,rental=0;
-
-filtered.forEach(r=>{
-if(r.stato==="inserito") inserted++;
-if(r.stato==="in_lavorazione") working++;
-if(r.stato==="chiuso") closed++;
-if(r.tipo==="noleggio" && r.noleggio && r.stato!=="chiuso") rental++;
-});
-
-document.getElementById("kpiTotal").innerText=records.length;
-document.getElementById("kpiInserted").innerText=inserted;
-document.getElementById("kpiWorking").innerText=working;
-document.getElementById("kpiClosed").innerText=closed;
-document.getElementById("kpiRental").innerText=rental;
-
-const tbody=document.getElementById("tableBody");
-tbody.innerHTML="";
-
-filtered.forEach(r=>{
-tbody.innerHTML+=`
-<tr>
-<td>${r.id}</td>
-<td>${r.user}</td>
-<td>${r.item}</td>
-<td>${r.quantita}</td>
-<td>${r.tipo}</td>
-<td>${r.tipo==="noleggio" && r.noleggio ? r.noleggio.dal+" → "+r.noleggio.al : "-"}</td>
-<td>
-<select onchange="changeStatus('${r.id}',this.value)">
-<option value="inserito" ${r.stato==="inserito"?"selected":""}>INSERITO</option>
-<option value="in_lavorazione" ${r.stato==="in_lavorazione"?"selected":""}>IN LAVORAZIONE</option>
-<option value="chiuso" ${r.stato==="chiuso"?"selected":""}>CHIUSO</option>
-</select>
-</td>
-<td>
-${r.tipo==="noleggio" && r.noleggio && r.stato!=="chiuso"
-? `<button onclick="openExtend('${r.id}')">Estendi</button>`
-: ""}
-</td>
-</tr>`;
-});
-
-updateChart(inserted,working,closed);
+records=records.filter(r=>r.id!==id);
+render();
 }
 
 /* ================= STATUS ================= */
@@ -346,37 +270,60 @@ body:JSON.stringify(r)
 render();
 }
 
-/* ================= MODAL ================= */
+/* ================= RENDER ================= */
 
-function openExtend(id){
-const r=records.find(x=>x.id===id);
-if(!r || r.tipo!=="noleggio" || !r.noleggio) return;
-currentExtendId=id;
-document.getElementById("extendModal").classList.remove("hidden");
-}
+function render(){
 
-function closeModal(){
-currentExtendId=null;
-document.getElementById("extendModal").classList.add("hidden");
-}
+const search=document.getElementById("searchInput").value?.toLowerCase()||"";
+const filter=document.getElementById("statusFilter").value;
 
-async function confirmExtend(){
-const newEnd=document.getElementById("extendDate").value;
-if(!newEnd || !currentExtendId) return;
-
-const r=records.find(x=>x.id===currentExtendId);
-if(!r || !r.noleggio) return;
-
-r.noleggio.storico_estensioni.push({
-dal:r.noleggio.al,
-al:newEnd,
-timestamp:new Date().toISOString()
+let filtered=records.filter(r=>{
+const matchSearch=
+(r.user||"").toLowerCase().includes(search)||
+(r.item||"").toLowerCase().includes(search)||
+(r.id||"").toLowerCase().includes(search);
+const matchStatus=filter? r.stato===filter:true;
+return matchSearch && matchStatus;
 });
 
-r.noleggio.al=newEnd;
+let inserted=0,working=0,closed=0;
 
-await changeStatus(r.id,r.stato);
-closeModal();
+filtered.forEach(r=>{
+if(r.stato==="inserito") inserted++;
+if(r.stato==="in_lavorazione") working++;
+if(r.stato==="chiuso") closed++;
+});
+
+document.getElementById("kpiTotal").innerText=records.length;
+document.getElementById("kpiInserted").innerText=inserted;
+document.getElementById("kpiWorking").innerText=working;
+document.getElementById("kpiClosed").innerText=closed;
+
+const tbody=document.getElementById("tableBody");
+tbody.innerHTML="";
+
+filtered.forEach(r=>{
+tbody.innerHTML+=`
+<tr>
+<td>${r.id}</td>
+<td>${r.user}</td>
+<td>${r.item}</td>
+<td>${r.quantita}</td>
+<td>${r.tipo}</td>
+<td>
+<select onchange="changeStatus('${r.id}',this.value)">
+<option value="inserito" ${r.stato==="inserito"?"selected":""}>INSERITO</option>
+<option value="in_lavorazione" ${r.stato==="in_lavorazione"?"selected":""}>IN LAVORAZIONE</option>
+<option value="chiuso" ${r.stato==="chiuso"?"selected":""}>CHIUSO</option>
+</select>
+</td>
+<td>
+<button class="danger" onclick="deleteRecord('${r.id}')">Elimina</button>
+</td>
+</tr>`;
+});
+
+updateChart(inserted,working,closed);
 }
 
 /* ================= CHART ================= */
@@ -413,12 +360,6 @@ doc.save("supply_audit_report.pdf");
 }
 
 /* ================= INIT ================= */
-
-document.getElementById("tipo").addEventListener("change",()=>{
-const isRental=document.getElementById("tipo").value==="noleggio";
-document.getElementById("dal").classList.toggle("hidden",!isRental);
-document.getElementById("al").classList.toggle("hidden",!isRental);
-});
 
 document.getElementById("searchInput").addEventListener("input",render);
 document.getElementById("statusFilter").addEventListener("change",render);
