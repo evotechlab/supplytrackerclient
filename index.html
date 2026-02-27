@@ -6,8 +6,6 @@
 <title>Supply Tracker</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 body{margin:0;font-family:Inter,sans-serif;background:#f1f5f9;color:#0f172a;}
@@ -59,7 +57,6 @@ input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e2e8f0;wid
 </div>
 
 </div>
-
 </div>
 
 <script>
@@ -73,23 +70,70 @@ const DROPBOX_FOLDER="/supply_records";
 let accessToken=localStorage.getItem("db_access");
 let records=[];
 
-/* ================= OAUTH ================= */
+/* ================= PKCE ================= */
 
-function loginDropbox(){
+function generateRandomString(length){
+const charset='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+let result='';
+for(let i=0;i<length;i++){
+result+=charset.charAt(Math.floor(Math.random()*charset.length));
+}
+return result;
+}
+
+async function sha256(plain){
+const encoder=new TextEncoder();
+const data=encoder.encode(plain);
+const hash=await crypto.subtle.digest('SHA-256',data);
+return btoa(String.fromCharCode(...new Uint8Array(hash)))
+.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+async function loginDropbox(){
+
+const codeVerifier=generateRandomString(64);
+localStorage.setItem("pkce_verifier",codeVerifier);
+
+const codeChallenge=await sha256(codeVerifier);
+
 const authUrl=
-"https://www.dropbox.com/oauth2/authorize?response_type=token"
-+"&client_id="+DROPBOX_APP_KEY
-+"&redirect_uri="+encodeURIComponent(REDIRECT_URI);
+"https://www.dropbox.com/oauth2/authorize"+
+"?client_id="+DROPBOX_APP_KEY+
+"&response_type=code"+
+"&redirect_uri="+encodeURIComponent(REDIRECT_URI)+
+"&code_challenge="+codeChallenge+
+"&code_challenge_method=S256";
+
 window.location.href=authUrl;
 }
 
-function handleRedirect(){
-if(window.location.hash.includes("access_token")){
-const params=new URLSearchParams(window.location.hash.substring(1));
-accessToken=params.get("access_token");
+async function handleRedirect(){
+
+const params=new URLSearchParams(window.location.search);
+const code=params.get("code");
+
+if(!code) return;
+
+const codeVerifier=localStorage.getItem("pkce_verifier");
+
+const response=await fetch("https://api.dropboxapi.com/oauth2/token",{
+method:"POST",
+headers:{"Content-Type":"application/x-www-form-urlencoded"},
+body:new URLSearchParams({
+code:code,
+grant_type:"authorization_code",
+client_id:DROPBOX_APP_KEY,
+redirect_uri:REDIRECT_URI,
+code_verifier:codeVerifier
+})
+});
+
+const data=await response.json();
+
+accessToken=data.access_token;
 localStorage.setItem("db_access",accessToken);
-window.location.href=REDIRECT_URI;
-}
+
+window.history.replaceState({},document.title,REDIRECT_URI);
 }
 
 /* ================= DROPBOX ================= */
@@ -99,8 +143,6 @@ options.headers=options.headers||{};
 options.headers["Authorization"]="Bearer "+accessToken;
 return fetch(url,options);
 }
-
-/* ================= CREATE FOLDER ================= */
 
 async function ensureFolder(){
 await dropboxFetch(
@@ -147,7 +189,7 @@ return await res.json();
 render();
 }
 
-/* ================= ID ================= */
+/* ================= CRUD ================= */
 
 function generateNextId(){
 let max=0;
@@ -157,8 +199,6 @@ if(n>max) max=n;
 });
 return "SUP-"+String(max+1).padStart(4,"0");
 }
-
-/* ================= ADD ================= */
 
 async function addRecord(){
 
@@ -194,10 +234,7 @@ records.push(record);
 render();
 }
 
-/* ================= DELETE ================= */
-
 async function deleteRecord(id){
-
 await dropboxFetch(
 "https://api.dropboxapi.com/2/files/delete_v2",
 {
@@ -206,12 +243,9 @@ headers:{"Content-Type":"application/json"},
 body:JSON.stringify({path:`${DROPBOX_FOLDER}/supply_${id}.json`})
 }
 );
-
 records=records.filter(r=>r.id!==id);
 render();
 }
-
-/* ================= RENDER ================= */
 
 function render(){
 const tbody=document.getElementById("tableBody");
@@ -231,13 +265,14 @@ tbody.innerHTML+=`
 
 /* ================= INIT ================= */
 
-handleRedirect();
-
+(async ()=>{
+await handleRedirect();
 if(accessToken){
 document.getElementById("authCard").classList.add("hidden");
 document.getElementById("appContent").classList.remove("hidden");
 loadData();
 }
+})();
 
 </script>
 
