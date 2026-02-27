@@ -102,7 +102,9 @@ const authUrl=
 "&response_type=code"+
 "&redirect_uri="+encodeURIComponent(REDIRECT_URI)+
 "&code_challenge="+codeChallenge+
-"&code_challenge_method=S256";
+"&code_challenge_method=S256"+
+"&token_access_type=online"+
+"&scope=files.metadata.read files.metadata.write files.content.read files.content.write";
 
 window.location.href=authUrl;
 }
@@ -130,6 +132,12 @@ code_verifier:codeVerifier
 
 const data=await response.json();
 
+if(!data.access_token){
+console.error("OAuth Error:",data);
+alert("Errore autenticazione Dropbox");
+return;
+}
+
 accessToken=data.access_token;
 localStorage.setItem("db_access",accessToken);
 
@@ -139,13 +147,29 @@ window.history.replaceState({},document.title,REDIRECT_URI);
 /* ================= DROPBOX ================= */
 
 async function dropboxFetch(url,options={}){
+
+if(!accessToken){
+console.warn("No access token");
+return {status:401};
+}
+
 options.headers=options.headers||{};
 options.headers["Authorization"]="Bearer "+accessToken;
-return fetch(url,options);
+
+const response=await fetch(url,options);
+
+if(response.status===401){
+console.error("Token non valido. Effettuare nuovo login.");
+localStorage.removeItem("db_access");
+location.reload();
+}
+
+return response;
 }
 
 async function ensureFolder(){
-await dropboxFetch(
+
+const response=await dropboxFetch(
 "https://api.dropboxapi.com/2/files/create_folder_v2",
 {
 method:"POST",
@@ -153,6 +177,8 @@ headers:{"Content-Type":"application/json"},
 body:JSON.stringify({path:DROPBOX_FOLDER,autorename:false})
 }
 );
+
+// ignore already_exists error
 }
 
 /* ================= LOAD ================= */
@@ -173,6 +199,7 @@ body:JSON.stringify({path:DROPBOX_FOLDER})
 if(response.status!==200) return;
 
 const data=await response.json();
+
 const files=(data.entries||[]).filter(f=>f.name.startsWith("supply_"));
 
 records=await Promise.all(files.map(async file=>{
@@ -235,6 +262,7 @@ render();
 }
 
 async function deleteRecord(id){
+
 await dropboxFetch(
 "https://api.dropboxapi.com/2/files/delete_v2",
 {
@@ -243,6 +271,7 @@ headers:{"Content-Type":"application/json"},
 body:JSON.stringify({path:`${DROPBOX_FOLDER}/supply_${id}.json`})
 }
 );
+
 records=records.filter(r=>r.id!==id);
 render();
 }
@@ -267,6 +296,7 @@ tbody.innerHTML+=`
 
 (async ()=>{
 await handleRedirect();
+
 if(accessToken){
 document.getElementById("authCard").classList.add("hidden");
 document.getElementById("appContent").classList.remove("hidden");
