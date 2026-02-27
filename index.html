@@ -169,16 +169,29 @@ return response;
 
 async function ensureFolder(){
 
-const response=await dropboxFetch(
+const check = await dropboxFetch(
+"https://api.dropboxapi.com/2/files/get_metadata",
+{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({path:DROPBOX_FOLDER})
+}
+);
+
+// Se esiste → OK
+if(check.status === 200){
+    return;
+}
+
+// Se non esiste → crea
+await dropboxFetch(
 "https://api.dropboxapi.com/2/files/create_folder_v2",
 {
 method:"POST",
 headers:{"Content-Type":"application/json"},
-body:JSON.stringify({path:DROPBOX_FOLDER,autorename:false})
+body:JSON.stringify({path:DROPBOX_FOLDER})
 }
 );
-
-// ignore already_exists error
 }
 
 /* ================= LOAD ================= */
