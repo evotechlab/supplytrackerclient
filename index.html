@@ -251,6 +251,21 @@ async function dropboxFetch(url, options = {}) {
 /* ================= DATA MANAGEMENT (SINGLE FILE) ================= */
 async function loadData() {
     try {
+        // 1. Controlla se il file esiste senza provare a scaricarlo
+        const check = await dropboxFetch("https://api.dropboxapi.com/2/files/get_metadata", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: DB_FILE_PATH })
+        });
+
+        // 2. Se non esiste (es. primo avvio), inizializza array vuoto e fermati
+        if (check.status !== 200) {
+            records = [];
+            render();
+            return;
+        }
+
+        // 3. Se esiste, procedi al download effettivo
         const res = await dropboxFetch("https://content.dropboxapi.com/2/files/download", {
             method: "POST",
             headers: { "Dropbox-API-Arg": JSON.stringify({ path: DB_FILE_PATH }) }
@@ -259,31 +274,11 @@ async function loadData() {
         if (res.status === 200) {
             records = await res.json();
         } else {
-            // Se il file non esiste (es. primo avvio), inizializza array vuoto
-            records = []; 
+            records = [];
         }
         render();
-    } catch (e) { console.error("Errore caricamento DB", e); }
-}
-
-async function saveDatabase(btnId) {
-    const btn = btnId ? document.getElementById(btnId) : null;
-    if(btn) btn.innerHTML = "⏳ Salvataggio in corso...";
-    
-    try {
-        await dropboxFetch("https://content.dropboxapi.com/2/files/upload", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/octet-stream",
-                "Dropbox-API-Arg": JSON.stringify({ path: DB_FILE_PATH, mode: "overwrite" })
-            },
-            body: JSON.stringify(records)
-        });
-        render();
-    } catch (e) {
-        alert("Errore di rete durante il salvataggio.");
-    } finally {
-        if(btn) btn.innerHTML = btnId === 'btnSave' ? "➕ Inserisci Record" : "💾 Salva Modifiche";
+    } catch (e) { 
+        console.error("Errore caricamento DB", e); 
     }
 }
 
