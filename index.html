@@ -14,7 +14,11 @@
 
 <style>
     /* CSS Reset & Variabili */
-    :root { --primary: #0ea5e9; --primary-hover: #0284c7; --danger: #ef4444; --warning: #f59e0b; --success: #10b981; --bg: #f8fafc; --text: #0f172a; --text-light: #64748b; }
+    :root { 
+        --primary: #0ea5e9; --primary-hover: #0284c7; 
+        --danger: #ef4444; --warning: #f59e0b; --success: #10b981; --extend: #8b5cf6;
+        --bg: #f8fafc; --text: #0f172a; --text-light: #64748b; 
+    }
     body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 60px; }
     
     /* Header & Topbar */
@@ -43,8 +47,10 @@
     button:hover { background: var(--primary-hover); }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-pdf { background: #334155; } .btn-pdf:hover { background: #1e293b; }
-    .btn-icon { padding: 8px; border-radius: 6px; font-size: 14px; }
+    
+    .btn-icon { padding: 8px; border-radius: 6px; font-size: 14px; color: white; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
     .btn-icon.view { background: var(--primary); }
+    .btn-icon.extend { background: var(--extend); }
     .btn-icon.edit { background: var(--warning); }
     .btn-icon.delete { background: var(--danger); }
     
@@ -67,8 +73,8 @@
     .modal-content { background: white; padding: 24px; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); transform: translateY(20px); transition: transform 0.2s; }
     .modal-overlay.active .modal-content { transform: translateY(0); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
-    .modal-header h3 { margin: 0; font-size: 18px; }
-    .close-btn { background: none; color: var(--text-light); font-size: 24px; padding: 0; border: none; cursor: pointer; }
+    .modal-header h3 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;}
+    .close-btn { background: none; color: var(--text-light); font-size: 24px; padding: 0; border: none; cursor: pointer; width: auto; height: auto;}
     .close-btn:hover { color: var(--danger); background: none; }
 
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -78,11 +84,19 @@
     input, select, textarea { padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; width: 100%; font-size: 14px; font-family: inherit; box-sizing: border-box; }
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
     
-    /* View Specific */
+    /* View Specific & Timeline */
     .view-row { margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
-    .view-label { font-size: 12px; color: var(--text-light); text-transform: uppercase; font-weight: 600; }
-    .view-value { font-size: 15px; font-weight: 500; margin-top: 4px; }
+    .view-label { font-size: 12px; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;}
+    .view-value { font-size: 15px; font-weight: 500; }
     
+    .timeline { border-left: 2px solid #e2e8f0; padding-left: 16px; margin-top: 10px; margin-bottom: 10px; }
+    .timeline-item { position: relative; margin-bottom: 12px; font-size: 13px; }
+    .timeline-item::before { content: ''; position: absolute; left: -21px; top: 4px; width: 10px; height: 10px; background: var(--extend); border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px var(--extend); }
+    .timeline-date { font-weight: 600; color: var(--text-light); font-size: 11px; }
+
+    /* Info Box */
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 14px; }
+
     /* Footer StatusBar */
     .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e2e8f0; padding: 8px 24px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); z-index: 40; box-shadow: 0 -2px 10px rgba(0,0,0,0.02); }
     .online-indicator { display: flex; align-items: center; gap: 6px; font-weight: 600; }
@@ -98,7 +112,7 @@
 <body>
 
 <header>
-    <div class="header-title"><i class="fa-solid fa-boxes-stacked"></i>Supply Tracker</div>
+    <div class="header-title"><i class="fa-solid fa-boxes-stacked"></i> Supply Tracker</div>
     <div class="header-actions">
         <div class="sync-status" id="syncStatus"><i class="fa-solid fa-check-double"></i> Sincronizzato</div>
     </div>
@@ -108,7 +122,7 @@
     <div id="authCard" class="card" style="text-align: center; max-width: 400px; margin: 40px auto;">
         <i class="fa-brands fa-dropbox" style="font-size: 48px; color: #0061FE; margin-bottom: 16px;"></i>
         <h3 style="margin-top:0;">Autenticazione Richiesta</h3>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">Accedi</p>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">Accedi per gestire l'inventario.</p>
         <button onclick="loginDropbox()" style="width: 100%; justify-content: center;"><i class="fa-solid fa-lock"></i> Login con Dropbox</button>
     </div>
 
@@ -144,7 +158,7 @@
                         <th>Tipo</th>
                         <th>Item</th>
                         <th>Utente / Qtà</th>
-                        <th>Dettagli Noleggio</th>
+                        <th>Periodo Noleggio</th>
                         <th>Note</th>
                         <th style="text-align: right;">Azioni</th>
                     </tr>
@@ -191,10 +205,44 @@
     </div>
 </div>
 
+<div id="extendModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3 style="color: var(--extend);"><i class="fa-solid fa-calendar-plus"></i> Estendi Noleggio</h3>
+            <button class="close-btn" onclick="closeModals()">&times;</button>
+        </div>
+        
+        <input type="hidden" id="extId">
+        <div class="info-box">
+            <b>Articolo:</b> <span id="extItemName"></span><br>
+            <b>Assegnato a:</b> <span id="extUserName"></span><br>
+            <hr style="border:0; border-top:1px solid #e2e8f0; margin:8px 0;">
+            <span style="color:var(--text-light); font-size: 12px;">Periodo Attuale:</span><br>
+            Dal <b><span id="extCurrDa"></span></b> al <b><span id="extCurrA"></span></b>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group full">
+                <label style="color: var(--extend);">Nuova Data Inizio</label>
+                <input id="extNewDa" type="date">
+            </div>
+            <div class="form-group full">
+                <label style="color: var(--extend);">Nuova Data Fine (Scadenza)</label>
+                <input id="extNewA" type="date">
+            </div>
+        </div>
+        
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+            <button style="background: white; color: var(--text); border: 1px solid #e2e8f0;" onclick="closeModals()">Annulla</button>
+            <button id="btnSaveExt" style="background: var(--extend);" onclick="saveExtension()"><i class="fa-solid fa-check"></i> Conferma Estensione</button>
+        </div>
+    </div>
+</div>
+
 <div id="viewModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Dettagli Record <span id="viewId" style="color: var(--primary);"></span></h3>
+            <h3><i class="fa-solid fa-file-lines"></i> Dettagli Record <span id="viewId" style="color: var(--primary); margin-left:8px;"></span></h3>
             <button class="close-btn" onclick="closeModals()">&times;</button>
         </div>
         <div id="viewContent">
@@ -206,7 +254,7 @@
 </div>
 
 <div class="status-bar" id="statusBar">
-    <div>Supply Tracker v2.0 - Sincronizzazione Attiva</div>
+    <div>Supply Tracker v2.5 - Sincronizzazione Attiva</div>
     <div class="online-indicator"><span class="pulse"></span> <span id="userCount">1</span> Utente/i Online</div>
 </div>
 
@@ -263,11 +311,10 @@ async function dropboxFetch(url,options={}){
     return res;
 }
 
-/* ================= CORE LOGIC (READ/WRITE MULTIPLE FILES) ================= */
+/* ================= CORE LOGIC ================= */
 async function loadData(isSilent = false){
     if(!isSilent) setSyncStatus("Sincronizzazione...", true);
     
-    // Assicura cartella
     const check = await dropboxFetch("https://api.dropboxapi.com/2/files/get_metadata",{
         method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({path:DROPBOX_FOLDER})
     });
@@ -285,7 +332,6 @@ async function loadData(isSilent = false){
     const data = await response.json();
     const files = (data.entries||[]).filter(f=>f.name.startsWith("supply_"));
 
-    // Scarica i file. (In un'app reale massiva si controllerebbe l'hash, qui manteniamo il tuo flusso).
     const newRecords = await Promise.all(files.map(async file=>{
         const res=await dropboxFetch("https://content.dropboxapi.com/2/files/download",{
             method:"POST", headers:{"Dropbox-API-Arg":JSON.stringify({path:file.path_lower})}
@@ -299,28 +345,16 @@ async function loadData(isSilent = false){
     setSyncStatus("Aggiornato ora", false);
 }
 
-function manualRefresh() {
-    loadData(false);
-}
-
+function manualRefresh() { loadData(false); }
 function setSyncStatus(msg, isSpinning) {
     const icon = document.getElementById("refreshIcon");
-    if(icon) {
-        if(isSpinning) icon.classList.add("spinning");
-        else icon.classList.remove("spinning");
-    }
+    if(icon) { if(isSpinning) icon.classList.add("spinning"); else icon.classList.remove("spinning"); }
     document.getElementById("syncStatus").innerHTML = isSpinning ? `<i class="fa-solid fa-arrows-rotate spinning"></i> ${msg}` : `<i class="fa-solid fa-check-double"></i> ${msg}`;
 }
+function updateFakeUsers() { document.getElementById("userCount").innerText = Math.floor(Math.random() * 3) + 1; }
 
-// Simulazione utenti (Dropbox non supporta presence realtime)
-function updateFakeUsers() {
-    // Genera un numero tra 1 e 3 per dare l'idea di sistema vivo
-    document.getElementById("userCount").innerText = Math.floor(Math.random() * 3) + 1;
-}
-
-/* ================= UI & MODALS ================= */
+/* ================= UI & TABELLA ================= */
 function updateUI() {
-    // 1. Update Table
     const tbody = document.getElementById("tableBody");
     if(records.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">Nessun record trovato. Inizia ad aggiungerne uno!</td></tr>`;
@@ -330,9 +364,15 @@ function updateUI() {
             const tipo = r.tipo || 'acquisto';
             
             let noleggioInfo = '-';
+            let extendBtn = '';
+
             if(tipo === 'noleggio') {
-                noleggioInfo = `<div style="font-size:12px;">Da: <b>${r.dataInizio||'?'}</b><br>A: <b>${r.dataFine||'?'}</b></div>`;
-                if(r.history && r.history.length > 0) noleggioInfo += `<span style="font-size:10px; color:var(--warning);"><i class="fa-solid fa-clock-rotate-left"></i> Esteso</span>`;
+                noleggioInfo = `<div style="font-size:13px;">Dal: <b>${formatDateITA(r.dataInizio)}</b><br>Al: <b>${formatDateITA(r.dataFine)}</b></div>`;
+                if(r.history && r.history.length > 0) {
+                    noleggioInfo += `<span style="font-size:11px; color:var(--extend); font-weight:600;"><i class="fa-solid fa-clock-rotate-left"></i> Esteso (${r.history.length})</span>`;
+                }
+                // Aggiunge il pulsante Estendi
+                extendBtn = `<button class="btn-icon extend" onclick="openExtendModal('${r.id}')" title="Estendi Noleggio"><i class="fa-solid fa-calendar-plus"></i></button>`;
             }
 
             return `<tr>
@@ -342,8 +382,9 @@ function updateUI() {
                 <td><i class="fa-regular fa-user"></i> ${r.user}<br><small>Qtà: <b>${r.quantita}</b></small></td>
                 <td>${noleggioInfo}</td>
                 <td><div class="truncate" title="${r.note||''}">${r.note || '-'}</div></td>
-                <td style="text-align: right; white-space: nowrap;">
+                <td style="text-align: right; white-space: nowrap; gap: 6px; display: flex; justify-content: flex-end;">
                     <button class="btn-icon view" onclick="viewRecord('${r.id}')" title="Vedi"><i class="fa-solid fa-eye"></i></button>
+                    ${extendBtn}
                     <button class="btn-icon edit" onclick="openFormModal('${r.id}')" title="Modifica"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn-icon delete" onclick="deleteRecord('${r.id}')" title="Rimuovi"><i class="fa-solid fa-trash"></i></button>
                 </td>
@@ -351,13 +392,11 @@ function updateUI() {
         }).join('');
     }
 
-    // 2. Update Dashboard Stats
     document.getElementById("stat-total").innerText = records.length;
     document.getElementById("stat-acquisti").innerText = records.filter(r => r.tipo === 'acquisto').length;
     document.getElementById("stat-noleggi").innerText = records.filter(r => r.tipo === 'noleggio').length;
     document.getElementById("stat-qty").innerText = records.reduce((s, r) => s + (Number(r.quantita) || 0), 0);
 
-    // 3. Update Chart
     drawChart();
 }
 
@@ -367,32 +406,21 @@ function drawChart() {
     const nol = records.filter(r => r.tipo === 'noleggio').length;
 
     if(chartInstance) chartInstance.destroy();
-    
     chartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Acquisti', 'Noleggi'],
-            datasets: [{
-                data: [acq, nol],
-                backgroundColor: ['#10b981', '#f59e0b'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
-            }
-        }
+        type: 'doughnut', data: { labels: ['Acquisti', 'Noleggi'], datasets: [{ data: [acq, nol], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } } }
     });
 }
 
-/* ================= MODAL LOGIC ================= */
-function closeModals() {
-    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+function formatDateITA(dateStr) {
+    if(!dateStr) return '?';
+    const parts = dateStr.split('-');
+    if(parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
+
+/* ================= MODAL LOGIC ================= */
+function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); }
 
 function toggleFormDates() {
     const isNol = document.getElementById("formTipo").value === 'noleggio';
@@ -403,7 +431,6 @@ function openFormModal(id = null) {
     const title = document.getElementById("modalTitle");
     const isEdit = id !== null;
     
-    // Reset
     document.getElementById("formId").value = "";
     document.getElementById("formUser").value = "";
     document.getElementById("formItem").value = "";
@@ -426,14 +453,72 @@ function openFormModal(id = null) {
             document.getElementById("formDataA").value = r.dataFine || "";
             document.getElementById("formNote").value = r.note || "";
         }
-    } else {
-        title.innerHTML = `<i class="fa-solid fa-plus"></i> Nuovo Record`;
-    }
+    } else { title.innerHTML = `<i class="fa-solid fa-plus"></i> Nuovo Record`; }
 
     toggleFormDates();
     document.getElementById("formModal").classList.add("active");
 }
 
+/* --- LOGICA ESTENSIONE NOLEGGIO --- */
+function openExtendModal(id) {
+    const r = records.find(x => x.id === id);
+    if(!r || r.tipo !== 'noleggio') return;
+
+    document.getElementById("extId").value = r.id;
+    document.getElementById("extItemName").innerText = r.item;
+    document.getElementById("extUserName").innerText = r.user;
+    
+    document.getElementById("extCurrDa").innerText = formatDateITA(r.dataInizio);
+    document.getElementById("extCurrA").innerText = formatDateITA(r.dataFine);
+
+    // Pre-popola i campi con le date attuali per comodità
+    document.getElementById("extNewDa").value = r.dataInizio || "";
+    document.getElementById("extNewA").value = r.dataFine || "";
+
+    document.getElementById("extendModal").classList.add("active");
+}
+
+async function saveExtension() {
+    const id = document.getElementById("extId").value;
+    const r = records.find(x => x.id === id);
+    if(!r) return;
+
+    const newDa = document.getElementById("extNewDa").value;
+    const newA = document.getElementById("extNewA").value;
+    const btn = document.getElementById("btnSaveExt");
+
+    if(!newDa || !newA) return alert("Inserisci entrambe le date per l'estensione.");
+
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner spinning"></i> Aggiornamento...`;
+
+    // Registra nello storico
+    if(!r.history) r.history = [];
+    r.history.push({
+        timestamp: new Date().toISOString(),
+        oldDa: r.dataInizio || "ND", oldA: r.dataFine || "ND",
+        newDa: newDa, newA: newA
+    });
+
+    // Aggiorna le date del record
+    r.dataInizio = newDa;
+    r.dataFine = newA;
+
+    // Salva su Dropbox
+    await dropboxFetch("https://content.dropboxapi.com/2/files/upload",{
+        method:"POST",
+        headers: { "Content-Type":"application/octet-stream", "Dropbox-API-Arg":JSON.stringify({path:`${DROPBOX_FOLDER}/supply_${r.id}.json`, mode:"overwrite"}) },
+        body: JSON.stringify(r)
+    });
+
+    closeModals();
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-check"></i> Conferma Estensione`;
+    
+    updateUI();
+}
+
+/* --- VISUALIZZAZIONE RECORD (TIMELINE) --- */
 function viewRecord(id) {
     const r = records.find(x => x.id === id);
     if(!r) return;
@@ -443,42 +528,54 @@ function viewRecord(id) {
     const tipoBadge = `<span class="badge ${r.tipo||'acquisto'}">${(r.tipo||'acquisto').toUpperCase()}</span>`;
     
     let html = `
-        <div class="view-row"><div class="view-label">Data Inserimento</div><div class="view-value">${date}</div></div>
+        <div class="view-row"><div class="view-label"><i class="fa-solid fa-clock"></i> Data Creazione</div><div class="view-value">${date}</div></div>
         <div class="view-row" style="display:grid; grid-template-columns:1fr 1fr;">
-            <div><div class="view-label">Utente</div><div class="view-value"><i class="fa-solid fa-user"></i> ${r.user}</div></div>
-            <div><div class="view-label">Tipo</div><div class="view-value">${tipoBadge}</div></div>
+            <div><div class="view-label"><i class="fa-solid fa-user"></i> Utente</div><div class="view-value">${r.user}</div></div>
+            <div><div class="view-label"><i class="fa-solid fa-tag"></i> Tipo</div><div class="view-value">${tipoBadge}</div></div>
         </div>
         <div class="view-row" style="display:grid; grid-template-columns:1fr 1fr;">
-            <div><div class="view-label">Articolo</div><div class="view-value"><b>${r.item}</b></div></div>
-            <div><div class="view-label">Quantità</div><div class="view-value">${r.quantita}</div></div>
+            <div><div class="view-label"><i class="fa-solid fa-box"></i> Articolo</div><div class="view-value"><b>${r.item}</b></div></div>
+            <div><div class="view-label"><i class="fa-solid fa-cubes"></i> Quantità</div><div class="view-value">${r.quantita}</div></div>
         </div>
     `;
 
     if(r.tipo === 'noleggio') {
         html += `
-        <div class="view-row" style="background:#fffbeb; padding:10px; border-radius:8px; border:1px solid #fef3c7;">
-            <div class="view-label" style="color:#b45309;"><i class="fa-solid fa-calendar-days"></i> Periodo Noleggio</div>
-            <div class="view-value">Dal <b>${r.dataInizio||'ND'}</b> al <b>${r.dataFine||'ND'}</b></div>
+        <div class="view-row" style="background:#fffbeb; padding:12px; border-radius:8px; border:1px solid #fef3c7;">
+            <div class="view-label" style="color:#b45309;"><i class="fa-solid fa-calendar-check"></i> Periodo Noleggio Attuale</div>
+            <div class="view-value">Dal <b>${formatDateITA(r.dataInizio)}</b> al <b>${formatDateITA(r.dataFine)}</b></div>
         </div>`;
         
+        // Se c'è uno storico delle estensioni, mostra la timeline
         if(r.history && r.history.length > 0) {
-            html += `<div class="view-row"><div class="view-label"><i class="fa-solid fa-clock-rotate-left"></i> Storico Estensioni</div>`;
-            r.history.forEach(h => {
-                html += `<div style="font-size:12px; margin-top:6px; padding-left:10px; border-left:2px solid var(--warning);">
-                    <i>${new Date(h.timestamp).toLocaleDateString()}</i>: Da [${h.oldDa} / ${h.oldA}] a [${h.newDa} / ${h.newA}]
+            html += `<div class="view-row">
+                <div class="view-label"><i class="fa-solid fa-timeline"></i> Storico Modifiche Date</div>
+                <div class="timeline">`;
+            
+            // Ordiniamo la storia dalla più recente alla più vecchia
+            const historyReversed = [...r.history].reverse();
+
+            historyReversed.forEach((h, idx) => {
+                const hDate = new Date(h.timestamp).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                html += `
+                <div class="timeline-item">
+                    <div class="timeline-date">${hDate}</div>
+                    <b>Modifica Periodo:</b><br>
+                    Precedente: [ ${formatDateITA(h.oldDa)} - ${formatDateITA(h.oldA)} ]<br>
+                    <span style="color:var(--extend); font-weight:600;">Aggiornato: [ ${formatDateITA(h.newDa)} - ${formatDateITA(h.newA)} ]</span>
                 </div>`;
             });
-            html += `</div>`;
+            html += `</div></div>`;
         }
     }
 
-    html += `<div class="view-row"><div class="view-label">Note Aggiuntive</div><div class="view-value" style="white-space:pre-wrap;">${r.note || '<i>Nessuna nota.</i>'}</div></div>`;
+    html += `<div class="view-row"><div class="view-label"><i class="fa-solid fa-align-left"></i> Note Aggiuntive</div><div class="view-value" style="white-space:pre-wrap;">${r.note || '<i>Nessuna nota presente.</i>'}</div></div>`;
 
     document.getElementById("viewContent").innerHTML = html;
     document.getElementById("viewModal").classList.add("active");
 }
 
-/* ================= CRUD OPERATIONS ================= */
+/* ================= CRUD BASE ================= */
 async function saveRecord() {
     const idField = document.getElementById("formId").value;
     const isEdit = idField !== "";
@@ -499,7 +596,7 @@ async function saveRecord() {
 
     if (isEdit) {
         record = records.find(x => x.id === idField);
-        // Traccia estensione noleggio
+        // Anche nella modifica generica tracciamo se le date cambiano (nel caso usino Edit invece di Extend)
         if(record.tipo === 'noleggio' && tipo === 'noleggio') {
             const oldDa = record.dataInizio; const oldA = record.dataFine;
             const newDa = document.getElementById("formDataDa").value; const newA = document.getElementById("formDataA").value;
@@ -518,9 +615,7 @@ async function saveRecord() {
     if (tipo === 'noleggio') {
         record.dataInizio = document.getElementById("formDataDa").value;
         record.dataFine = document.getElementById("formDataA").value;
-    } else {
-        delete record.dataInizio; delete record.dataFine;
-    }
+    } else { delete record.dataInizio; delete record.dataFine; }
 
     await dropboxFetch("https://content.dropboxapi.com/2/files/upload",{
         method:"POST",
@@ -532,7 +627,6 @@ async function saveRecord() {
     btn.disabled = false;
     btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Salva Record`;
     
-    // Refresh locale immediato
     if(!isEdit) records.unshift(record);
     updateUI();
 }
@@ -551,33 +645,19 @@ async function deleteRecord(id) {
 /* ================= EXPORT PDF ================= */
 function generatePDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape per tabelle larghe
-    
-    doc.setFontSize(18);
-    doc.text("Supply Tracker - Report Inventario", 14, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generato il: ${new Date().toLocaleString('it-IT')}`, 14, 28);
+    const doc = new jsPDF('l', 'mm', 'a4'); 
+    doc.setFontSize(18); doc.text("Supply Tracker - Report Inventario", 14, 20);
+    doc.setFontSize(10); doc.setTextColor(100); doc.text(`Generato il: ${new Date().toLocaleString('it-IT')}`, 14, 28);
 
     const tableData = records.map(r => [
-        r.id, 
-        new Date(r.timestamp).toLocaleDateString('it-IT'), 
-        (r.tipo||'acquisto').toUpperCase(), 
-        r.item, 
-        r.user, 
-        r.quantita, 
-        r.tipo === 'noleggio' ? `${r.dataInizio||'ND'} / ${r.dataFine||'ND'}` : '-',
-        (r.note || '').substring(0, 40) // Taglia note lunghe
+        r.id, new Date(r.timestamp).toLocaleDateString('it-IT'), (r.tipo||'acquisto').toUpperCase(), r.item, r.user, r.quantita, 
+        r.tipo === 'noleggio' ? `${formatDateITA(r.dataInizio)} / ${formatDateITA(r.dataFine)}` : '-', (r.note || '').substring(0, 40)
     ]);
 
     doc.autoTable({
-        startY: 35,
-        headStyles: { fillColor: [15, 23, 42] },
-        head: [['ID', 'Data', 'Tipo', 'Articolo', 'Utente', 'Qtà', 'Date Noleggio', 'Note (Estratto)']],
-        body: tableData,
+        startY: 35, headStyles: { fillColor: [15, 23, 42] },
+        head: [['ID', 'Data', 'Tipo', 'Articolo', 'Utente', 'Qtà', 'Date Noleggio', 'Note (Estratto)']], body: tableData,
     });
-
     doc.save(`SupplyReport_${new Date().getTime()}.pdf`);
 }
 
@@ -591,13 +671,8 @@ function generatePDF() {
         
         await loadData();
         
-        // Auto-refresh ogni 30 secondi per non saturare le API Dropbox
         refreshInterval = setInterval(() => {
-            // Non aggiornare se una modale è aperta per evitare di sovrascrivere il lavoro dell'utente
-            if(!document.querySelector('.modal-overlay.active')) {
-                loadData(true);
-                updateFakeUsers();
-            }
+            if(!document.querySelector('.modal-overlay.active')) { loadData(true); updateFakeUsers(); }
         }, 30000);
     } else {
         document.getElementById("statusBar").style.display = "none";
