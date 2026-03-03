@@ -424,7 +424,12 @@ function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m =
 
 function toggleFormDates() {
     const isNol = document.getElementById("formTipo").value === 'noleggio';
-    document.getElementById("formDateContainer").style.display = isNol ? "grid" : "none";
+    const container = document.getElementById("formDateContainer");
+    if (isNol) {
+        container.classList.remove("hidden");
+    } else {
+        container.classList.add("hidden");
+    }
 }
 
 function openFormModal(id = null) {
